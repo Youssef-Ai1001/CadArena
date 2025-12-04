@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #0066FF;
+  --primary-dark: #0052CC;
+  --primary-light: #3385FF;
+  --secondary: #7C3AED;
+  --accent: #10B981;
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+  --muted: #F1F5F9;
+  --border: #E2E8F0;
+  --error: #EF4444;
+  --success: #10B981;
+  --warning: #F59E0B;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--muted); /* Simple, light background */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-slate-700 border border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--primary)] font-semibold py-2 px-6 rounded-lg transition-all duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-[var(--border)];
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-[var(--border)] bg-[rgba(255,255,255,0.9)] text-slate-900 rounded-lg focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all duration-200 placeholder-slate-400;
+  }
+  
+  .input-field:disabled {
+    @apply bg-slate-100 text-slate-500 cursor-not-allowed;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CBD5E1;
+}
+
+/* Logo animation */
+@keyframes logoFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.logo-float {
+  animation: logoFloat 3s ease-in-out infinite;
+}
