@@ -5,11 +5,8 @@ import { useEffect } from 'react';
 /**
  * SessionInitializer
  * ------------------
- * Keeps auth tokens in sync between cookies and localStorage so that
- * users stay logged in across full browser restarts.
- *
- * - On mount, if localStorage is empty but cookies are present, it restores tokens.
- * - This runs once at the app root (see layout.tsx).
+ * Manages session tokens between cookies (primary) and localStorage (fallback).
+ * Cookies are set by the backend, localStorage is used as fallback for API calls.
  */
 export default function SessionInitializer() {
   useEffect(() => {
@@ -20,17 +17,24 @@ export default function SessionInitializer() {
       return match ? decodeURIComponent(match[1]) : null;
     };
 
-    const accessInStorage = window.localStorage.getItem('access_token');
-    const refreshInStorage = window.localStorage.getItem('refresh_token');
-    const accessCookie = getCookie('cadarena_access');
-    const refreshCookie = getCookie('cadarena_refresh');
+    // Check for tokens in cookies (set by backend) or localStorage (fallback)
+    const accessCookie = getCookie('access_token') || getCookie('cadarena_access');
+    const refreshCookie = getCookie('refresh_token') || getCookie('cadarena_refresh');
+    const sessionCookie = getCookie('session_token');
 
-    // If localStorage is empty but cookies exist, restore from cookies
-    if (!accessInStorage && accessCookie) {
+    // Sync cookies to localStorage for API interceptor compatibility
+    if (accessCookie && !window.localStorage.getItem('access_token')) {
       window.localStorage.setItem('access_token', accessCookie);
     }
-    if (!refreshInStorage && refreshCookie) {
+    if (refreshCookie && !window.localStorage.getItem('refresh_token')) {
       window.localStorage.setItem('refresh_token', refreshCookie);
+    }
+
+    // If no tokens found anywhere, user is logged out
+    if (!accessCookie && !window.localStorage.getItem('access_token')) {
+      // Clear any stale localStorage tokens
+      window.localStorage.removeItem('access_token');
+      window.localStorage.removeItem('refresh_token');
     }
   }, []);
 

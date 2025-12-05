@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { projectsAPI, authAPI, Project } from '@/lib/api';
 import Link from 'next/link';
@@ -14,16 +14,7 @@ export default function DashboardPage() {
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-    loadProjects();
-  }, [router]);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const data = await projectsAPI.list();
       setProjects(data);
@@ -33,7 +24,29 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    // Check for token in cookies or localStorage
+    const getToken = (): string | null => {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'access_token' || name === 'cadarena_access') {
+          return decodeURIComponent(value);
+        }
+      }
+      return localStorage.getItem('access_token');
+    };
+
+    const token = getToken();
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
+    loadProjects();
+  }, [router, loadProjects]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();

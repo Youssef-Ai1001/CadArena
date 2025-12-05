@@ -62,11 +62,8 @@ export default function SignupPage() {
       
       // If user is already verified (email disabled), auto-login
       if (user.is_verified) {
-        const loginResponse = await authAPI.login(email, password);
-        localStorage.setItem('access_token', loginResponse.access_token);
-        localStorage.setItem('refresh_token', loginResponse.refresh_token);
-        const maxAge = 60 * 60 * 24 * 30; // 30 days
-        document.cookie = `cadarena_access=${encodeURIComponent(loginResponse.access_token)}; Path=/; Max-Age=${maxAge}`;
+        await authAPI.login(email, password);
+        // Tokens are stored in cookies by backend and synced to localStorage by API
         document.cookie = `cadarena_refresh=${encodeURIComponent(loginResponse.refresh_token)}; Path=/; Max-Age=${maxAge}`;
         router.push('/app/dashboard');
         return;
@@ -117,7 +114,7 @@ export default function SignupPage() {
                 <div>
                   <h3 className="font-semibold text-green-900 mb-2">Account Created Successfully!</h3>
                   <p className="text-sm text-green-700 mb-4">
-                    We've sent a verification email to <strong>{email}</strong>. 
+                    We&apos;ve sent a verification email to <strong>{email}</strong>. 
                     Please check your inbox and click the verification link to activate your account.
                     Once verified, you can log in.
                   </p>

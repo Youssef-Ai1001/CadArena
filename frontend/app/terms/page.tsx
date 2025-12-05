@@ -79,7 +79,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-bold text-slate-900 mb-4">6. Limitation of Liability</h2>
               <p className="text-slate-700 leading-relaxed">
-                CadArena is provided "as is" without warranties. We are not liable for any damages resulting from your use of the service, including but not limited to direct, indirect, incidental, or consequential damages.
+                CadArena is provided &quot;as is&quot; without warranties. We are not liable for any damages resulting from your use of the service, including but not limited to direct, indirect, incidental, or consequential damages.
               </p>
             </section>
 

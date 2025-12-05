@@ -25,12 +25,24 @@ export function useWebSocket(
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
+  const getToken = (): string | null => {
+    if (typeof document === 'undefined') return null;
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'access_token' || name === 'cadarena_access') {
+        return decodeURIComponent(value);
+      }
+    }
+    return localStorage.getItem('access_token');
+  };
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
-    const token = localStorage.getItem('access_token');
+    const token = getToken();
     if (!token) {
       setError('No authentication token found');
       return;

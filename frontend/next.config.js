@@ -5,9 +5,9 @@ const nextConfig = {
   poweredByHeader: false,
   
   // Performance optimizations
-  experimental: {
-    optimizeCss: true,
-  },
+  // experimental: {
+  //   optimizeCss: true, // Disabled - requires critters module
+  // },
   
   // Security headers
   async headers() {

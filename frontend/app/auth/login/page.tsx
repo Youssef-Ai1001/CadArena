@@ -21,8 +21,7 @@ export default function LoginPage() {
 
     try {
       const response = await authAPI.login(identifier, password);
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Tokens are stored in cookies by backend and synced to localStorage by API
       router.push('/app/dashboard');
     } catch (err: any) {
       // If there's no response at all, it's likely a network or backend URL issue
@@ -160,7 +159,7 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-6 border-t border-slate-200">
             <p className="text-center text-sm text-slate-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/auth/signup" className="text-[#0066FF] hover:text-[#0052CC] font-semibold transition-colors">
                 Sign up for free
               </Link>

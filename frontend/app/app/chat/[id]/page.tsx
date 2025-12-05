@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { projectsAPI, Project } from '@/lib/api';
+import { projectsAPI, Project, chatAPI, ChatMessage } from '@/lib/api';
 import { useWebSocket, WebSocketMessage } from '@/hooks/useWebSocket';
 import DxfViewer from '@/components/DxfViewer';
 import Logo from '@/components/Logo';
@@ -30,64 +30,66 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
 
-  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
+  const handleWebSocketMessage = useCallback(async (message: WebSocketMessage) => {
     if (message.type === 'status') {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          type: 'system',
-          content: message.message || 'Processing...',
-          timestamp: new Date(),
-        },
-      ]);
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        type: 'system',
+        content: message.message || 'Processing...',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, systemMessage]);
+      
+      // Save system message to database
+      try {
+        await chatAPI.createMessage(projectId, 'system', message.message || 'Processing...');
+      } catch (error) {
+        console.error('Error saving system message:', error);
+      }
     } else if (message.type === 'dxf_output' && message.data) {
       setCurrentDxf(message.data);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          type: 'dxf',
-          content: 'DXF generated successfully!',
-          timestamp: new Date(),
-        },
-      ]);
+      const dxfMessage: Message = {
+        id: Date.now().toString(),
+        type: 'dxf',
+        content: 'DXF generated successfully!',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, dxfMessage]);
+      
+      // Save AI message with DXF to database
+      try {
+        await chatAPI.createMessage(projectId, 'ai', 'DXF generated successfully!', message.data);
+      } catch (error) {
+        console.error('Error saving AI message:', error);
+      }
+      
       setSending(false);
     } else if (message.type === 'error') {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          type: 'system',
-          content: `Error: ${message.message || 'An error occurred'}`,
-          timestamp: new Date(),
-        },
-      ]);
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'system',
+        content: `Error: ${message.message || 'An error occurred'}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      
+      // Save error message to database
+      try {
+        await chatAPI.createMessage(projectId, 'system', `Error: ${message.message || 'An error occurred'}`);
+      } catch (error) {
+        console.error('Error saving error message:', error);
+      }
+      
       setSending(false);
     }
-  }, []);
+  }, [projectId]);
 
   const { connected, sendMessage, error: wsError } = useWebSocket(
     projectId,
     handleWebSocketMessage
   );
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
-    loadProject();
-    loadProjects();
-  }, [projectId, router]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const loadProject = async () => {
+  const loadProject = useCallback(async () => {
     try {
       const data = await projectsAPI.get(projectId);
       setProject(data);
@@ -97,38 +99,99 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, router]);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const data = await projectsAPI.list();
       setProjects(data);
     } catch (error) {
       console.error('Error loading projects:', error);
     }
-  };
+  }, []);
 
-  const handleSendPrompt = (e: React.FormEvent) => {
+  const loadChatHistory = useCallback(async () => {
+    try {
+      const chatMessages = await chatAPI.getMessages(projectId);
+      // Convert database messages to UI messages
+      const uiMessages: Message[] = chatMessages.map((msg) => ({
+        id: msg.id.toString(),
+        type: msg.message_type as 'user' | 'system' | 'dxf',
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+      }));
+      setMessages(uiMessages);
+      
+      // Set latest DXF if available
+      const latestDxf = chatMessages
+        .filter(msg => msg.dxf_data)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      if (latestDxf?.dxf_data) {
+        setCurrentDxf(latestDxf.dxf_data);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    // Check for token in cookies or localStorage
+    const getToken = (): string | null => {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'access_token' || name === 'cadarena_access') {
+          return decodeURIComponent(value);
+        }
+      }
+      return localStorage.getItem('access_token');
+    };
+
+    const token = getToken();
+    if (!token) {
+      router.push('/auth/login');
+      return;
+    }
+
+    loadProject();
+    loadProjects();
+    loadChatHistory();
+  }, [projectId, router, loadProject, loadProjects, loadChatHistory]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendPrompt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || !connected || sending) return;
 
-    // Add user message to chat
+    const promptText = prompt.trim();
+    setPrompt('');
+    setSending(true);
+
+    // Add user message to chat immediately
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: prompt,
+      content: promptText,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
 
+    // Save user message to database
+    try {
+      await chatAPI.createMessage(projectId, 'user', promptText);
+    } catch (error) {
+      console.error('Error saving user message:', error);
+    }
+
     // Send via WebSocket
     sendMessage({
       type: 'prompt',
-      prompt: prompt,
+      prompt: promptText,
     });
-
-    setPrompt('');
-    setSending(true);
   };
 
   if (loading) {
@@ -225,9 +288,9 @@ export default function ChatPage() {
                     Describe your CAD design in natural language. For example:
                   </p>
                   <div className="bg-slate-50 rounded-lg p-4 text-left space-y-2">
-                    <p className="text-sm text-slate-700">• "Draw a circle with radius 25"</p>
-                    <p className="text-sm text-slate-700">• "Create a line from (10,10) to (50,50)"</p>
-                    <p className="text-sm text-slate-700">• "Make a rectangle 100x50"</p>
+                    <p className="text-sm text-slate-700">• &quot;Draw a circle with radius 25&quot;</p>
+                    <p className="text-sm text-slate-700">• &quot;Create a line from (10,10) to (50,50)&quot;</p>
+                    <p className="text-sm text-slate-700">• &quot;Make a rectangle 100x50&quot;</p>
                   </div>
                 </div>
               </div>
