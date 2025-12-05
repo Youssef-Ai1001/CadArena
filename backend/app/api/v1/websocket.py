@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import User, Project, Conversation
+from app.db.models import User, Project, Conversation, ChatMessage
 from app.services.ai_service import ai_service
 from app.core.security import decode_access_token
 import json
@@ -77,6 +77,22 @@ async def websocket_chat(websocket: WebSocket, project_id: int):
             
             prompt_text = message["prompt"]
             
+            # Save user message to database
+            db = next(get_db())
+            try:
+                user_message = ChatMessage(
+                    project_id=project_id,
+                    message_type="user",
+                    content=prompt_text
+                )
+                db.add(user_message)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                print(f"Error saving user message: {e}")
+            finally:
+                db.close()
+            
             # Send acknowledgment
             await websocket.send_json({
                 "type": "status",
@@ -87,9 +103,19 @@ async def websocket_chat(websocket: WebSocket, project_id: int):
             try:
                 dxf_output = await ai_service.generate_dxf_from_prompt(prompt_text)
                 
-                # Save conversation to database
+                # Save AI response and DXF to database
                 db = next(get_db())
                 try:
+                    # Save AI message
+                    ai_message = ChatMessage(
+                        project_id=project_id,
+                        message_type="ai",
+                        content="DXF generated successfully!",
+                        dxf_data=dxf_output
+                    )
+                    db.add(ai_message)
+                    
+                    # Also save to Conversation table for backward compatibility
                     conversation = Conversation(
                         project_id=project_id,
                         prompt_text=prompt_text,

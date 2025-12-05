@@ -225,3 +225,13 @@ def sanitize_input(text: str) -> str:
     text = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'<[^>]+>', '', text)  # Remove HTML tags
     return text.strip()
+
+
+def generate_session_token() -> str:
+    """
+    Generate a secure random token for session management.
+    
+    Returns:
+        A cryptographically secure random token string
+    """
+    return secrets.token_urlsafe(32)

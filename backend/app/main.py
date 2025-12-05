@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.db.database import init_db
-from app.api.v1 import auth, projects, websocket
+from app.api.v1 import auth, projects, websocket, chat
 
 # Initialize database
 init_db()
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(websocket.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 
 
 @app.get("/")

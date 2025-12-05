@@ -2,13 +2,13 @@
 Comprehensive authentication routes with email verification, password reset,
 refresh tokens, rate limiting, and brute-force protection.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request, Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime, timedelta
 from app.db.database import get_db
-from app.db.models import User, VerificationToken, PasswordResetToken
+from app.db.models import User, VerificationToken, PasswordResetToken, Session as SessionModel
 from app.api.v1.schemas import (
     UserCreate, UserResponse, Token, LoginRequest, RefreshTokenRequest,
     VerifyEmailRequest, ResendVerificationRequest,
@@ -18,7 +18,8 @@ from app.api.v1.schemas import (
 from app.core.security import (
     verify_password, get_password_hash, validate_password_strength,
     create_access_token, create_refresh_token, decode_access_token, decode_refresh_token,
-    generate_verification_token, generate_password_reset_token, sanitize_input
+    generate_verification_token, generate_password_reset_token, sanitize_input,
+    generate_session_token
 )
 from app.core.config import settings
 from app.services.email_service import email_service
@@ -231,17 +232,19 @@ async def signup(
 @router.post("/login", response_model=Token)
 async def login(
     request: Request,
+    response: Response,
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Authenticate user and return JWT tokens.
+    Authenticate user and return JWT tokens with session cookies.
     
     Features:
     - Login with email or username
     - Checks account lock status
     - Increments failed login attempts
     - Returns access and refresh tokens
+    - Sets secure HTTP-only cookies for session management
     - Rate limited to 10 requests per minute
     """
     identifier = sanitize_input(login_data.identifier).lower()
@@ -289,7 +292,49 @@ async def login(
     
     # Store refresh token in database
     user.refresh_token = refresh_token
+    
+    # Create session
+    session_token = generate_session_token()
+    expires_at = datetime.utcnow() + timedelta(days=settings.SESSION_EXPIRE_DAYS)
+    
+    new_session = SessionModel(
+        user_id=user.id,
+        session_token=session_token,
+        expires_at=expires_at
+    )
+    db.add(new_session)
     db.commit()
+    
+    # Set secure HTTP-only cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        path="/"
+    )
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        path="/"
+    )
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=settings.SESSION_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        path="/"
+    )
     
     return {
         "access_token": access_token,
@@ -573,14 +618,34 @@ async def change_password(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Logout user by invalidating refresh token.
+    Logout user by invalidating refresh token and clearing session cookies.
     """
+    # Invalidate refresh token
     current_user.refresh_token = None
+    
+    # Delete all user sessions
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        db.query(SessionModel).filter(
+            SessionModel.user_id == current_user.id,
+            SessionModel.session_token == session_token
+        ).delete()
+    
+    # Clear all user sessions (optional - for security)
+    db.query(SessionModel).filter(SessionModel.user_id == current_user.id).delete()
+    
     db.commit()
+    
+    # Clear cookies
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
+    response.delete_cookie(key="session_token", path="/")
     
     return MessageResponse(message="Logged out successfully")
 

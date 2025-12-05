@@ -115,6 +115,29 @@ class ConversationResponse(BaseModel):
         from_attributes = True
 
 
+# ==================== Chat Message Schemas ====================
+
+class ChatMessageCreate(BaseModel):
+    """Schema for creating a chat message."""
+    project_id: int
+    message_type: str = Field(..., description="Type: 'user', 'ai', or 'system'")
+    content: str
+    dxf_data: Optional[str] = None
+
+
+class ChatMessageResponse(BaseModel):
+    """Schema for chat message response."""
+    id: int
+    project_id: int
+    message_type: str
+    content: str
+    dxf_data: Optional[str]
+    timestamp: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 # ==================== Message Schemas ====================
 
 class MessageResponse(BaseModel):

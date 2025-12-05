@@ -9,9 +9,11 @@ class Settings(BaseSettings):
     # Security - JWT
     SECRET_KEY: str = "your-secret-key-change-in-production-use-random-string"
     REFRESH_SECRET_KEY: str = "your-refresh-secret-key-change-in-production"
+    SESSION_SECRET_KEY: str = "your-session-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    SESSION_EXPIRE_DAYS: int = 30  # Session cookie expiration
     
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
