@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import SiteFooter from '@/components/SiteFooter';
 import { ArrowRight, Sparkles, Zap, Box, CheckCircle2, Bot, User, Loader2 } from 'lucide-react';
@@ -14,7 +13,6 @@ interface DemoMessage {
 }
 
 export default function Home() {
-  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
@@ -25,14 +23,6 @@ export default function Home() {
       text: 'Hi, I am the CadArena assistant. Describe a simple shape and I will show you how the chat feels.',
     },
   ]);
-
-  useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      router.push('/app/dashboard');
-    }
-  }, [router]);
 
   useEffect(() => {
     const onScroll = () => {
